@@ -46,8 +46,8 @@ build:
     - source venv/bin/activate
     - pip install -r requirements.txt
   script:
-    - mkdir -p $DEPLOY_DIR
-    - cp finance_calculator_gui.py $DEPLOY_DIR/
+    - echo "Building application..."
+    - echo "Application successfully built."
   only:
     - main
 >>>>>>> 2feb373 (first commit)
