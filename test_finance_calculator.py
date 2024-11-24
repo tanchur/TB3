@@ -1,7 +1,6 @@
 import pytest
-from finance_calculator_gui import FinanceCalculator
+from finance_calculator import FinanceCalculator
 
-@pytest.fixture
 def calculator():
     return FinanceCalculator()
 
