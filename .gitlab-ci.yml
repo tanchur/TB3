@@ -1,0 +1,48 @@
+stages:
+  - test
+  - lint
+  - build
+  - deploy
+
+variables:
+  DOCKER_IMAGE: mortgage-calculator
+
+.test_template: &test_definition
+  stage: test
+  script:
+    - python -m pytest tests/ -v
+
+unit_tests:
+  <<: *test_definition
+
+integration_tests:
+  <<: *test_definition
+  script:
+    - python -m pytest tests/ -v --tb=long
+
+lint:
+  stage: lint
+  script:
+    - python -m pylint calculator.py app.py tests/ --fail-under=7.0
+
+build:
+  stage: build
+  script:
+    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
+    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:latest
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to production server..."
+    - scp -r . $PRODUCTION_SERVER:/opt/mortgage-calculator/
+    - ssh $PRODUCTION_SERVER "cd /opt/mortgage-calculator && docker-compose down && docker-compose up -d"
+  environment:
+    name: production
+    url: http://your-production-server
+  only:
+    - main
+  dependencies:
+    - build
