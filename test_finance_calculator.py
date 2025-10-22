@@ -2,6 +2,7 @@ import pytest
 from finance_calculator import FinanceCalculator
 
 
+@pytest.fixture
 def calculator():
     return FinanceCalculator()
 
