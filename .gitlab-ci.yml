@@ -1,8 +1,6 @@
 stages:
   - test
   - lint
-  - build
-  - deploy
 
 
 # Тестирование
