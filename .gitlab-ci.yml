@@ -5,69 +5,56 @@ stages:
   - deploy
 
 variables:
-  DOCKER_IMAGE: mortgage-calculator
   DOCKER_TLS_CERTDIR: ""
 
-# Общий шаблон для тестов
-.test_template: &test_definition
+# Тестирование
+test:
   stage: test
   image: python:3.9-slim
   before_script:
-    - pip install -r requirements.txt
+    - cd app
   script:
-    - python -m pytest app/ -v
+    - pip install -r ../requirements.txt
+    - python -m pytest test_calculator.py -v
 
-unit_tests:
-  <<: *test_definition
-
-integration_tests:
-  <<: *test_definition
-  script:
-    - python -m pytest app/ -v --tb=long
-
+# Проверка кодстайла
 lint:
   stage: lint
   image: python:3.9-slim
   before_script:
-    - pip install -r requirements.txt
+    - cd app
   script:
-    - python -m flake8 app/ --max-line-length=120
-    # Или для pylint:
-    # - python -m pylint app/ --fail-under=7.0 || echo "Pylint completed"
+    - pip install -r ../requirements.txt
+    - flake8 calculator.py test_calculator.py --max-line-length=120
 
+# Сборка Docker образа
 build:
   stage: build
   image: docker:latest
   services:
     - docker:dind
   before_script:
-    - apk add --no-cache docker-cli
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY 2>/dev/null || echo "Login skipped"
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
-    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
-    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:latest
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:latest
   only:
     - main
-  dependencies: []
 
+# Деплой на продуктовый сервер
 deploy:
   stage: deploy
   image: alpine:latest
   before_script:
     - apk add --no-cache openssh-client
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - ssh-keyscan -H $PRODUCTION_SERVER >> ~/.ssh/known_hosts
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
   script:
-    - echo "Deploying to production server..."
-    - scp -o StrictHostKeyChecking=no -r . $PRODUCTION_SERVER:/opt/mortgage-calculator/
-    - ssh -o StrictHostKeyChecking=no $PRODUCTION_SERVER "cd /opt/mortgage-calculator && docker-compose down && docker-compose up -d --build"
-  environment:
-    name: production
-    url: http://$PRODUCTION_SERVER
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker pull $CI_REGISTRY_IMAGE:latest"
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker stop mortgage-calculator || true"
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker rm mortgage-calculator || true"
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker run -d --name mortgage-calculator -p 80:5000 $CI_REGISTRY_IMAGE:latest"
   only:
     - main
-  dependencies:
-    - build
