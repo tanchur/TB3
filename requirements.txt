@@ -1,2 +1,2 @@
-pytest==7.0.0
-pylint==2.15.0python app.py
+pytest
+flake8
