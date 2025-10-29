@@ -1,4 +1,3 @@
-# finance_calculator_gui.py
 
 import tkinter as tk
 from tkinter import messagebox
